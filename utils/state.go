@@ -2,7 +2,6 @@ package utils
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -22,57 +21,50 @@ func WriteState(f string) {
 	os.WriteFile(stateFile, []byte(f), 0644)
 }
 
+// GetKeybindPath returns the absolute path to the mapped .lua keybind file for a flavour if it exists.
+func GetKeybindPath(flavour string, config Config) string {
+	keybindsDir := filepath.Join(os.Getenv("HOME"), ".config", "qswitch", "keybinds")
+
+	// 1. Check if flavour has an explicit mapped file in config.Keybinds
+	if mapped, ok := config.Keybinds[flavour]; ok && mapped != "" && mapped != "default" {
+		targetPath := filepath.Join(keybindsDir, mapped)
+		if info, err := os.Stat(targetPath); err == nil && !info.IsDir() {
+			return targetPath
+		}
+		if !strings.HasSuffix(mapped, ".lua") {
+			targetPathLua := filepath.Join(keybindsDir, mapped+".lua")
+			if info, err := os.Stat(targetPathLua); err == nil && !info.IsDir() {
+				return targetPathLua
+			}
+		}
+	}
+
+	// 2. Check fallback <flavour>.lua inside keybinds directory
+	flavourLua := filepath.Join(keybindsDir, flavour+".lua")
+	if info, err := os.Stat(flavourLua); err == nil && !info.IsDir() {
+		return flavourLua
+	}
+
+	return ""
+}
+
 func GetFlavourPath(flavour string) (string, bool) {
-
-	if flavour == "dms" {
-		_, err := exec.LookPath("dms")
-		if err != nil {
-			return "", false
-		}
-		return flavour, true
-	} else if strings.ToLower(flavour) == "ambxst" {
-		_, err := exec.LookPath("ambxst")
-		if err != nil {
-			return "", false
-		}
-		return flavour, true
+	cfg := LoadConfig()
+	path := GetKeybindPath(flavour, cfg)
+	if path != "" {
+		return path, true
 	}
-
-	roots := []string{
-		filepath.Join(os.Getenv("HOME"), ".config", "quickshell"),
-		"/etc/xdg/quickshell",
-		"/usr/share/quickshell",
-		"/usr/local/share/quickshell",
-	}
-
-	for _, root := range roots {
-
-		foundPath := ""
-
-		filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-			if err != nil || foundPath != "" {
-				return nil
-			}
-
-			if d.IsDir() && filepath.Base(path) == flavour {
-				foundPath = path
-				return filepath.SkipDir
-			}
-
-			return nil
-		})
-
-		if foundPath != "" {
-			return foundPath, true
-		}
-	}
-
 	return "", false
 }
 
-func IsFlavourInstalled(flavour string) bool {
-	_, ok := GetFlavourPath(flavour)
-	return ok
+func IsFlavourInstalled(flavour string, config ...Config) bool {
+	var cfg Config
+	if len(config) > 0 {
+		cfg = config[0]
+	} else {
+		cfg = LoadConfig()
+	}
+	return GetKeybindPath(flavour, cfg) != ""
 }
 
 func CheckFirstRun() bool {

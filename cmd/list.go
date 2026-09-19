@@ -20,22 +20,37 @@ var listCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		config := utils.LoadConfig()
 		status, _ := cmd.Flags().GetBool("status")
+		var allFlavours []string
+		seen := make(map[string]bool)
+		for _, f := range config.Flavours {
+			if !seen[f] {
+				seen[f] = true
+				allFlavours = append(allFlavours, f)
+			}
+		}
+		for k := range config.Keybinds {
+			if !seen[k] {
+				seen[k] = true
+				allFlavours = append(allFlavours, k)
+			}
+		}
+
 		if status {
 			type FlavourStatus struct {
 				Name      string `json:"name"`
 				Installed bool   `json:"installed"`
 			}
 			var statuses []FlavourStatus
-			for _, f := range config.Flavours {
+			for _, f := range allFlavours {
 				statuses = append(statuses, FlavourStatus{
 					Name:      f,
-					Installed: utils.IsFlavourInstalled(f),
+					Installed: utils.IsFlavourInstalled(f, config),
 				})
 			}
 			jsonData, _ := json.Marshal(statuses)
 			fmt.Println(string(jsonData))
 		} else {
-			for _, f := range config.Flavours {
+			for _, f := range allFlavours {
 				fmt.Println(f)
 			}
 		}

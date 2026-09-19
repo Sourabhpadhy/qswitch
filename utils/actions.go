@@ -8,6 +8,22 @@ import (
 	"strings"
 )
 
+func isQuickshellDir(name string) bool {
+	roots := []string{
+		filepath.Join(os.Getenv("HOME"), ".config", "quickshell"),
+		"/etc/xdg/quickshell",
+		"/usr/share/quickshell",
+		"/usr/local/share/quickshell",
+	}
+	for _, root := range roots {
+		p := filepath.Join(root, name)
+		if info, err := os.Stat(p); err == nil && info.IsDir() {
+			return true
+		}
+	}
+	return false
+}
+
 func ApplyKeybinds(flavour string, config Config, debug bool) {
 	// Handle keybinds
 	qswitchDir := filepath.Join(os.Getenv("HOME"), ".config", "qswitch")
@@ -23,9 +39,9 @@ func ApplyKeybinds(flavour string, config Config, debug bool) {
 
 	flavourName := filepath.Base(flavour)
 
-	contentParts = append(contentParts, "hl.bind(\"" + config.PanelKeybind + "\", hl.dsp.exec_cmd(\"qswitch panel\"))")
+	contentParts = append(contentParts, "hl.bind(\""+config.PanelKeybind+"\", hl.dsp.exec_cmd(\"qswitch panel\"))")
 	// Check for unbinds if enabled
-	if config.Unbinds && config.Keybinds[flavourName] != "default" && config.Keybinds[flavourName] != "" {
+	if config.Unbinds {
 		unbindsPath := filepath.Join(
 			os.Getenv("HOME"),
 			".config",
@@ -36,20 +52,18 @@ func ApplyKeybinds(flavour string, config Config, debug bool) {
 		if info, err := os.Stat(unbindsPath); err == nil && !info.IsDir() {
 			contentParts = append(contentParts, "dofile(\""+unbindsPath+"\")")
 		} else {
-			fmt.Printf("Warning: unbinds.lua not found at %s\n", unbindsPath)
+			Debug(debug, "unbinds.lua not found at %s", unbindsPath)
 		}
 	}
 
-	// Add flavour keybinds
-	if config.Keybinds[flavourName] == "default" {
+	// Add mapped flavour keybinds dynamically
+	keybindPath := GetKeybindPath(flavourName, config)
+	if keybindPath != "" {
+		contentParts = append(contentParts, "dofile(\""+keybindPath+"\")")
+	} else if config.Keybinds[flavourName] == "default" {
 		contentParts = append(contentParts, "-- Default")
 	} else {
-		keybindPath := filepath.Join(os.Getenv("HOME"), ".config", "qswitch", "keybinds", config.Keybinds[flavourName])
-		if info, err := os.Stat(keybindPath); err == nil && !info.IsDir() {
-			contentParts = append(contentParts, "dofile(\""+keybindPath+"\")")
-		} else {
-			fmt.Printf("Warning: keybind file %s not found or is a directory for flavour %s\n", config.Keybinds[flavourName], flavourName)
-		}
+		fmt.Printf("Warning: keybind file not found for flavour %s\n", flavourName)
 	}
 
 	content := strings.Join(contentParts, "\n")
@@ -62,29 +76,47 @@ func ApplyKeybinds(flavour string, config Config, debug bool) {
 }
 
 func ApplyFlavour(target string, config Config, debug bool) {
+	flavourName := filepath.Base(target)
+
 	Debug(debug, "Stopping previous instances (qs, caelestia, whisker)...")
 	exec.Command("pkill", "-x", "qs").Run()
 	exec.Command("caelestia", "shell", "-k").Run()
 	exec.Command("whisker", "shell", "stop").Run()
 
-	if target == "dms" {
+	if flavourName == "dms" {
 		Debug(debug, "Starting dms...")
 		exec.Command("dms", "run", "-d").Run()
-	} else if strings.ToLower(target) == "ambxst" {
+	} else if strings.ToLower(flavourName) == "ambxst" {
 		Debug(debug, "Starting ambxst...")
 		cmd := exec.Command("ambxst")
 		cmd.Start()
-	} else if target == "whisker" {
+	} else if flavourName == "whisker" {
 		Debug(debug, "Starting whisker shell...")
 		exec.Command("whisker", "shell").Run()
+	} else if isQuickshellDir(flavourName) {
+		Debug(debug, "Starting qs with target: %s...", flavourName)
+		cmd := exec.Command("qs", "-c", flavourName)
+		cmd.Start()
+	} else if _, err := exec.LookPath(flavourName); err == nil {
+		Debug(debug, "Starting %s directly...", flavourName)
+		cmd := exec.Command(flavourName)
+		cmd.Start()
 	} else {
-		Debug(debug, "Starting qs with target: %s...", target)
-		cmd := exec.Command("qs", "-c", target)
+		Debug(debug, "Starting qs with fallback target: %s...", flavourName)
+		cmd := exec.Command("qs", "-c", flavourName)
 		cmd.Start()
 	}
 
 	Debug(debug, "Applying keybinds...")
-	ApplyKeybinds(target, config, debug)
+	ApplyKeybinds(flavourName, config, debug)
+
+	// Dynamically execute / source mapped lua file in Hyprland
+	keybindPath := GetKeybindPath(flavourName, config)
+	if keybindPath != "" {
+		Debug(debug, "Dynamically executing mapped keybinds lua file: %s", keybindPath)
+		exec.Command("hyprctl", "eval", fmt.Sprintf("dofile(\"%s\")", keybindPath)).Run()
+	}
+
 	Debug(debug, "Reloading hyprland...")
 	exec.Command("hyprctl", "reload").Run()
 }
@@ -119,7 +151,7 @@ func Cycle(config Config) {
 	// Find the first installed flavour for fallback
 	firstInstalled := ""
 	for _, f := range config.Flavours {
-		if IsFlavourInstalled(f) {
+		if IsFlavourInstalled(f, config) {
 			firstInstalled = f
 			break
 		}
@@ -158,7 +190,7 @@ func Cycle(config Config) {
 	for i := 1; i <= len(config.Flavours); i++ {
 		nextIdx := (currentIdx + i) % len(config.Flavours)
 		next := config.Flavours[nextIdx]
-		if IsFlavourInstalled(next) {
+		if IsFlavourInstalled(next, config) {
 			WriteState(next)
 			ApplyFlavour(next, config, false)
 			fmt.Println("Switched to", next)

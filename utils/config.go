@@ -60,5 +60,12 @@ func LoadConfig() Config {
 }
 
 func IsValidFlavour(name string, config Config) bool {
-	return slices.Contains(config.Flavours, name)
+	if slices.Contains(config.Flavours, name) {
+		return true
+	}
+	if _, ok := config.Keybinds[name]; ok {
+		return true
+	}
+	return false
 }
+

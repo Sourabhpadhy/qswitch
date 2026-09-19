@@ -30,7 +30,7 @@ var applyCmd = &cobra.Command{
 				return
 			}
 
-			if _, ok := utils.GetFlavourPath(currentFlavour); !ok {
+			if !utils.IsFlavourInstalled(currentFlavour, config) {
 				fmt.Println("Current flavour is not installed:", currentFlavour)
 				return
 			}
@@ -53,10 +53,9 @@ var applyCmd = &cobra.Command{
 			return
 		}
 
-		path, ok := utils.GetFlavourPath(flavour)
-		if !ok {
+		if !utils.IsFlavourInstalled(flavour, config) {
 			fmt.Println("Flavour not installed:", flavour)
-			fmt.Println("Searched in user, system, and subdirectories.")
+			fmt.Println("Keybind file not found in ~/.config/qswitch/keybinds/")
 			return
 		}
 
@@ -67,7 +66,7 @@ var applyCmd = &cobra.Command{
 		}
 
 		utils.WriteState(flavour)
-		utils.ApplyFlavour(path, config, debugFlag)
+		utils.ApplyFlavour(flavour, config, debugFlag)
 		fmt.Println("Switched to", flavour)
 	},
 }
