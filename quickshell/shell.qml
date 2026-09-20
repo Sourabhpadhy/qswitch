@@ -119,13 +119,15 @@ Scope {
                             var f = flavours[i];
                             var flavourId = f.name;
                             var installed = f.installed;
-                            var color = root.flavourColors[flavourId] || root.defaultFlavourColor;
+                            var customIcon = f.icon || "";
+                            var color = (f.color && f.color !== "") ? f.color : (root.flavourColors[flavourId] || root.defaultFlavourColor);
                             var name = flavourId.charAt(0).toUpperCase() + flavourId.slice(1);
                             root.flavourInstallStatus[flavourId] = installed;
                             masterModel.append({
                                 "name": name,
                                 "flavourId": flavourId,
                                 "color": color,
+                                "icon": customIcon,
                                 "desc": name + " Theme",
                                 "installed": installed
                             });
@@ -427,7 +429,8 @@ Scope {
                             property bool isHovered: mouseArea.containsMouse
                             property color itemColor: model.color
                             property bool isActive: model.flavourId === root.currentFlavour
-                            property string flavourIcon: root.flavourIcons[model.flavourId] || ""
+                            property string customIcon: (model.icon !== undefined && model.icon !== "") ? model.icon : ""
+                            property string flavourIcon: customIcon !== "" ? customIcon : (root.flavourIcons[model.flavourId] || "")
                             property bool hasIcon: flavourIcon !== ""
                             property bool isInstalled: model.installed !== undefined ? model.installed : true
 
@@ -475,7 +478,7 @@ Scope {
                                         anchors.centerIn: parent
                                         width: listDelegate.isSelected ? 40 : 36
                                         height: width
-                                        source: listDelegate.hasIcon ? "file://" + root.iconsBasePath + listDelegate.flavourIcon : ""
+                                        source: listDelegate.hasIcon ? (listDelegate.flavourIcon.startsWith("/") || listDelegate.flavourIcon.startsWith("file://") ? (listDelegate.flavourIcon.startsWith("file://") ? listDelegate.flavourIcon : "file://" + listDelegate.flavourIcon) : "file://" + root.iconsBasePath + listDelegate.flavourIcon) : ""
                                         fillMode: Image.PreserveAspectFit
                                         smooth: true
                                     }
@@ -597,7 +600,7 @@ Scope {
                                             anchors.centerIn: parent
                                             width: 42
                                             height: 42
-                                            source: listDelegate.hasIcon ? "file://" + root.iconsBasePath + listDelegate.flavourIcon : ""
+                                            source: listDelegate.hasIcon ? (listDelegate.flavourIcon.startsWith("/") || listDelegate.flavourIcon.startsWith("file://") ? (listDelegate.flavourIcon.startsWith("file://") ? listDelegate.flavourIcon : "file://" + listDelegate.flavourIcon) : "file://" + root.iconsBasePath + listDelegate.flavourIcon) : ""
                                             fillMode: Image.PreserveAspectFit
                                             smooth: true
                                         }

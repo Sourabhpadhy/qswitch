@@ -39,12 +39,21 @@ var listCmd = &cobra.Command{
 			type FlavourStatus struct {
 				Name      string `json:"name"`
 				Installed bool   `json:"installed"`
+				Icon      string `json:"icon,omitempty"`
+				Color     string `json:"color,omitempty"`
 			}
 			var statuses []FlavourStatus
 			for _, f := range allFlavours {
+				icon := utils.GetAssetPath(f)
+				color := ""
+				if icon != "" {
+					color = utils.ExtractDominantColor(icon)
+				}
 				statuses = append(statuses, FlavourStatus{
 					Name:      f,
 					Installed: utils.IsFlavourInstalled(f, config),
+					Icon:      icon,
+					Color:     color,
 				})
 			}
 			jsonData, _ := json.Marshal(statuses)

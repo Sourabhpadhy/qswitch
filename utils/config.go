@@ -32,6 +32,10 @@ func LoadConfig() Config {
 	keybindsDir := filepath.Join(configDir, "keybinds")
 	os.MkdirAll(keybindsDir, 0755)
 
+	// Create assets dir
+	assetsDir := filepath.Join(configDir, "assets")
+	os.MkdirAll(assetsDir, 0755)
+
 	// Read file
 	data, err := os.ReadFile(configPath)
 	if err != nil {

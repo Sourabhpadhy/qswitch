@@ -28,6 +28,7 @@ add_custom_command(
         ${CMAKE_SOURCE_DIR}/utils/config.go
         ${CMAKE_SOURCE_DIR}/utils/state.go
         ${CMAKE_SOURCE_DIR}/utils/actions.go
+        ${CMAKE_SOURCE_DIR}/utils/color.go
         ${CMAKE_SOURCE_DIR}/utils/help.go
         ${CMAKE_SOURCE_DIR}/utils/autofix.go
     COMMENT "Building qswitch Go binary"
